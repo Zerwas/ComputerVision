@@ -11,7 +11,7 @@ using namespace cv;
 using namespace std;
 
 
-const int trackbarmax=20;
+const int trackbarmax=30;
 int filterSize = 1;
 Vec3b wantedColor;
 Mat image;
@@ -23,13 +23,15 @@ Mat images[trackbarmax+1];
 static void onTrackbar(int, void*)
 {
     if (images[filterSize].empty()){
+        clock_t start,finish;
+        start=clock();
         Mat median;
         image.copyTo(median);
 
         //go filter image
         int rightBorder=image.cols-filterSize-1;
         int bottonBorder=image.rows-filterSize-1;
-/*
+
         //_______________________________________slower but working alternative_______________________________________
         for (int y = filterSize; y <= bottonBorder; ++y) {
             Tree* tree=new Tree(2*filterSize+1);
@@ -46,13 +48,13 @@ static void onTrackbar(int, void*)
                     tree->insertR(image.at<Vec3b>(Point(x+filterSize,y-y2)));
                 }
                 median.at<Vec3b>(Point(x,y))=tree->getMedian();
-                if (x==100) tree->printFilter();
+                //if (x==100) tree->printFilter();
             }
         }
-
+    //imshow("Target_slow", median);
         //___________________________________________________________________________________________________________
         //*/
-
+/*
         //filterWidth is allways odd
         Tree* medianTree=new Tree(2*filterSize+1);
         //fill filter
@@ -101,54 +103,8 @@ static void onTrackbar(int, void*)
                 }
             }
         }//*/
-
-/*
-Tree* te=new Tree(3);
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-te->insertR(Vec3b(1,0,0));
-te->insertR(Vec3b(2,0,0));
-te->insertR(Vec3b(3,0,0));
-te->printFilter();
-//*/
+        finish=clock();
+        printf("%d:%d\n",filterSize,(finish-start)*1000/CLOCKS_PER_SEC);
         //save calculated image
         median.copyTo(images[filterSize]);
     }
@@ -181,6 +137,8 @@ int main( int argc, const char** argv )
         help();
         return -1;
     }
+    //show original of filterwidth = 1
+    image.copyTo(images[0]);
 
     // Create a window
     namedWindow("Filter", 1);

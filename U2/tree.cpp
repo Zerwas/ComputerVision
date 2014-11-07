@@ -35,7 +35,7 @@ Tree::Tree(int width):width(width),size(width*width),pos(0)
     minTree[0].parent=-1;
     //minTree[0].extrema=size-1;
     minTree[1].parent=0;
-    minTree[1].parent=0;
+    minTree[2].parent=0;
     for(int ebene=1;ebene<size/2;ebene=ebene*2+1){
         for(int i=0;i<=ebene&&i+ebene<numberOfFullNodes;i++){
             //maxTree[ebene+i].extrema=((numberOfNodes+1)/(ebene+1))*i;
@@ -71,6 +71,7 @@ Tree::Tree(int width):width(width),size(width*width),pos(0)
         if(i%2==0) minTree[numberOfFullNodes+i/2].leftChild=(size-1)/2+i-1;
         else minTree[numberOfFullNodes+i/2].rightChild=(size-1)/2+i-1;
     }
+
     //fill extrema
     for(int i=numberOfFullNodes;i<numberOfNodes;i++){
         //printf("%d,%d:%d\n",i,(i-numberOfFullNodes)*2,numberOfNodes+1+(i-numberOfFullNodes)*2);
@@ -88,6 +89,7 @@ Tree::Tree(int width):width(width),size(width*width),pos(0)
             node=minTree[node.parent];
         }
     }
+
 }
 
 Vec3b Tree::getMedian(){
@@ -104,7 +106,7 @@ Vec3b Tree::getMedian(){
  * @return true if a=>b
  */
 bool Tree::compare(Vec3b a,Vec3b b){
-    return a[0]+a[1]+a[2]>b[0]+b[1]+b[2];//!!!!!!!>
+    return a[0]+a[1]+a[2]>b[0]+b[1]+b[2];
 }
 
 void Tree::balance(int position, Node *Tree, int node, bool max,bool all){
