@@ -103,7 +103,7 @@ Vec3b Tree::getMedian(){
  * @brief Tree::compare the given vectors
  * @param a
  * @param b
- * @return true if a=>b
+ * @return true if a>b
  */
 bool Tree::compare(Vec3b a,Vec3b b){
     return a[0]+a[1]+a[2]>b[0]+b[1]+b[2];
@@ -233,6 +233,7 @@ void Tree::insert(Vec3b newEle){
             parents[minTree[0].extrema]=p;
             elements[pos]=newEle;
             //printf("here\n");
+            //balance trees again
             balance(minTree[0].extrema,maxTree,parents[minTree[0].extrema],true);
             balance(pos,minTree,parents[pos]-numberOfNodes,false,true);//all
         }
@@ -255,6 +256,7 @@ void Tree::insert(Vec3b newEle){
             if(parents[pos]>=numberOfNodes){
                 //printf("1\n");
                 //old element is in minTree
+                //swap newEle->maxTree.extrema->oldEle
                 int p=parents[pos]-numberOfNodes;
                 bool maxL=!(minTree[p].rightChild==pos);
 
@@ -275,9 +277,7 @@ void Tree::insert(Vec3b newEle){
                 parents[maxTree[0].extrema]=p+numberOfNodes;
                 elements[pos]=newEle;
 
-                //int x=parents[pos];
-                //parents[pos]=parents[maxTree[0].extrema];
-                //parents[maxTree[0].extrema]=x;
+                //balance trees again
                 balance(maxTree[0].extrema,minTree,parents[maxTree[0].extrema]-numberOfNodes,false);
                 //elements[pos]=newEle;
                 balance(pos,maxTree,parents[pos],true,true);

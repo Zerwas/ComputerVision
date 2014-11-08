@@ -137,7 +137,7 @@ static void onTrackbar(int, void*)
             }
         }//*/
         finish=clock();
-        printf("%d:%ld\n",filterSize,(finish-start)*1000/CLOCKS_PER_SEC);
+        printf("%d:%ldms\n",filterSize,(finish-start)*1000/CLOCKS_PER_SEC);
         //save calculated image
         median.copyTo(images[filterSize]);
     }
