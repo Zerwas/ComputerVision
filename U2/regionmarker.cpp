@@ -7,18 +7,21 @@
 #include <iostream>
 #include <tree.h>
 
+#include <set>
+
 using namespace cv;
 using namespace std;
 
 
 const int trackbarmax=30;
 int filterSize = 1;
-Vec3b wantedColor;
 Mat image;
 //here calculated images get saved so changed the trackbar is smoother
 //from 0 to trackbarmax
 Mat images[trackbarmax+1];
-
+bool compL(Vec3b a,Vec3b b){
+    return a[0]+a[1]+a[2]>b[0]+b[1]+b[2];
+}
 // define a trackbar callback
 static void onTrackbar(int, void*)
 {
@@ -31,8 +34,38 @@ static void onTrackbar(int, void*)
         //go filter image
         int rightBorder=image.cols-filterSize-1;
         int bottonBorder=image.rows-filterSize-1;
+        //______________________________________________multiset version naiv________________________________________
+/*
+        bool(*compare)(Vec3b,Vec3b)=compL;
+        multiset<Vec3b,bool(*)(Vec3b,Vec3b)> left (compare),right (compare);
+        multiset<Vec3b,bool(*)(Vec3b,Vec3b)>::iterator it;
+        for (int y = filterSize; y <= bottonBorder; ++y) {
+            left.clear();
+            //fill filter
+            for (int x = 0; x < 2*filterSize+1; ++x) {
+                for (int y2 = -filterSize; y2 <=filterSize; ++y2) {
+                    left.insert(image.at<Vec3b>(Point(x,y-y2)));
+                }
+            }
+            it=left.begin();
+            advance(it,left.size()/2);
+            median.at<Vec3b>(Point(filterSize,y))=*it;
+            //move right
+            for (int x = filterSize+1; x <= rightBorder; ++x) {
+                for (int y2 = -filterSize; y2 <= filterSize; ++y2) {
+                    it=(left.find(image.at<Vec3b>(Point(x-filterSize-1,y+y2))));
+                    left.erase(it);
+                    left.insert(image.at<Vec3b>(Point(x+filterSize,y-y2)));
+                }
+                it=left.begin();
+                advance(it,left.size()/2);
+                median.at<Vec3b>(Point(x,y))=*it;
+            }
+            imshow("multiset", median);
+        }
+        //*/
 
-        //_______________________________________slower but working alternative_______________________________________
+        //_______________________________________slower but working tree version______________________________________
         for (int y = filterSize; y <= bottonBorder; ++y) {
             Tree* tree=new Tree(2*filterSize+1);
             //fill filter
@@ -51,8 +84,8 @@ static void onTrackbar(int, void*)
                 //if (x==100) tree->printFilter();
             }
         }
-    //imshow("Target_slow", median);
-        //___________________________________________________________________________________________________________
+
+        //_______________________________________faster tree version (not correct)_____________________________________
         //*/
 /*
         //filterWidth is allways odd
@@ -104,7 +137,7 @@ static void onTrackbar(int, void*)
             }
         }//*/
         finish=clock();
-        printf("%d:%d\n",filterSize,(finish-start)*1000/CLOCKS_PER_SEC);
+        printf("%d:%ld\n",filterSize,(finish-start)*1000/CLOCKS_PER_SEC);
         //save calculated image
         median.copyTo(images[filterSize]);
     }
@@ -136,6 +169,12 @@ int main( int argc, const char** argv )
         printf("Cannot read image file: %s\n", filename.c_str());
         help();
         return -1;
+    }
+    //put shot noise on picture
+    for (int x = 0; x < image.cols; ++x) {
+        for (int y = 0; y < image.rows; ++y) {
+            if (rand()%100<3) image.at<Vec3b>(Point(x,y))=Vec3b(rand()%255,rand()%255,rand()%255);
+        }
     }
     //show original of filterwidth = 1
     image.copyTo(images[0]);
