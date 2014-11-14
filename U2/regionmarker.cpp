@@ -30,8 +30,6 @@ static void onTrackbar(int, void*)
         start=clock();
         Mat median;
         image.copyTo(median);
-        image.copyTo(ims);//remove
-    Tree* tree=new Tree(2*filterSize+1);
         //go filter image
         int rightBorder=image.cols-filterSize-1;
         int bottonBorder=image.rows-filterSize-1;
@@ -82,13 +80,7 @@ static void onTrackbar(int, void*)
                     tree->insertR(image.at<Vec3b>(Point(x+filterSize,y-y2)));
                 }
                 median.at<Vec3b>(Point(x,y))=tree->getMedian();
-                /*if (x==117&&y>614&&y<618){ tree->printFilter();
-                    median.at<Vec3b>(Point(x,y))=Vec3b(0,0,255);
-                    ims.at<Vec3b>(Point(x,y))=Vec3b(0,0,255);
-                }
-                if ((x==117-filterSize||x==117+filterSize)&&y>614&&y<618){
-                    ims.at<Vec3b>(Point(x,y))=Vec3b(0,255,0);
-                }*/
+
             }
         }
 
@@ -150,7 +142,6 @@ static void onTrackbar(int, void*)
     }
     //show image
     imshow("Target", images[filterSize]);
-    imshow("Filter",ims);
 }
 
 
