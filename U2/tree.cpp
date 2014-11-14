@@ -106,12 +106,13 @@ Vec3b Tree::getMedian(){
  * @return true if a>b
  */
 bool Tree::compare(Vec3b a,Vec3b b){
+    //return (a[0]-b[0])*(a[0]-b[0])*(a[0]-b[0])+(a[1]-b[1])*(a[1]-b[1])*(a[1]-b[1])+(a[2]-b[2])*(a[2]-b[2])*(a[2]-b[2])>0;
     return a[0]+a[1]+a[2]>b[0]+b[1]+b[2];
 }
 
-void Tree::balance(int position, Node *Tree, int node, bool max,bool all){
+void Tree::balance(int position, Node *Tree, int node, bool max){
    // printf("balance:%d,(%d,%d:%d)\n",position,Tree[node].leftChild,Tree[node].rightChild,Tree[node].parent);
-    if (!all&&position!=maxTree[0].extrema&&position!=minTree[0].extrema){//tree.extrema?
+    /*if (!all&&position!=maxTree[0].extrema&&position!=minTree[0].extrema){//tree.extrema?
         while(node!=-1)
         {
             if(max^compare(elements[Tree[node].extrema],elements[position])){
@@ -125,46 +126,44 @@ void Tree::balance(int position, Node *Tree, int node, bool max,bool all){
             node=Tree[node].parent;
         }
     }
-    else{
-        //whole Tree has to be updated because extremum changed
-//printf("balElse\n");
+    else{//*/
+        //whole Tree has to be updated because extrema changed
+        r=Tree[node].rightChild;
         if(!max&&node==numberOfFullNodes){
             //former minimum is at node with 1 leaf
-            Tree[node].extrema=(!(max^compare(elements[Tree[Tree[node].leftChild].extrema],elements[Tree[node].rightChild])))?Tree[Tree[node].leftChild].extrema:Tree[node].rightChild;
+            l=Tree[Tree[node].leftChild].extrema;
         }
         else{
-            Tree[node].extrema=(!(max^compare(elements[Tree[node].leftChild],elements[Tree[node].rightChild])))?Tree[node].leftChild:Tree[node].rightChild;
+            l=Tree[node].leftChild;
         }
-        //printf("balElse\n");
+        Tree[node].extrema=((max^compare(elements[r],elements[l])))?l:r;
         node=Tree[node].parent;
         while(node!=-1)
         {
+            l=Tree[Tree[node].leftChild].extrema;
             if(!max&&node==numberOfFullNodes){
-                  Tree[node].extrema=(!(max^compare(elements[Tree[Tree[node].leftChild].extrema],elements[Tree[node].rightChild])))?Tree[Tree[node].leftChild].extrema:Tree[node].rightChild;
+                //check for node with 1 leaf
+                r=Tree[node].rightChild;
             }
             else{
-               // printf("Par:%d\n",node);
-                if(!(max^compare(elements[Tree[Tree[node].leftChild].extrema],elements[Tree[Tree[node].rightChild].extrema]))){
-                    //change minimum in node
-                    Tree[node].extrema=Tree[Tree[node].leftChild].extrema;
-                }
-                else{
-                    //no change so tree is balanced
-                    Tree[node].extrema=Tree[Tree[node].rightChild].extrema;
-                }
+                r=Tree[Tree[node].rightChild].extrema;
             }
+            Tree[node].extrema=((max^compare(elements[r],elements[l])))?l:r;
             node=Tree[node].parent;
             }
 
-    }
+
 }
+
 void Tree::printFilter(){
     Vec3b a=getMedian();
     printf("Filter,Median:%d\n",a[0]+a[1]+a[2]);
     for (int i = width-1; i >=0; --i) {
         for (int j = 0; j < width; ++j) {
             a=elements[(pos+i+j*width)%size];
-            printf("%d,",a[0]+a[1]+a[2]);
+            if (a[0]+a[1]+a[2]<10) printf("%d",0);
+            else if (a[0]+a[1]+a[2]<100) printf("%d",1);
+            if (a[0]+a[1]+a[2]>=100) printf("%d",2);
         }
         printf(" \n");
 
@@ -214,28 +213,26 @@ void Tree::insert(Vec3b newEle){
             //old element is in maxTree
             //swap newEle->minTree.extrema->oldEle
             int p=parents[pos];
-            bool maxL=!(maxTree[p].rightChild==pos);//change all of these to right child cause off odd #
+            //bool maxL=!(maxTree[p].rightChild==pos);//change all of these to right child cause off odd #
 
-            bool minL=!(minTree[parents[minTree[0].extrema]-numberOfNodes].rightChild==minTree[0].extrema);
+            //bool minL=!(minTree[parents[minTree[0].extrema]-numberOfNodes].rightChild==minTree[0].extrema);
             //printf("nL:%d\n",maxL);
-            if (maxL)
-                maxTree[p].leftChild=minTree[0].extrema;
-            else
+            if (maxTree[p].rightChild==pos)
                 maxTree[p].rightChild=minTree[0].extrema;
-
-//printf("here\n");
-            if(minL)
-                minTree[parents[minTree[0].extrema]-numberOfNodes].leftChild=pos;
             else
+                maxTree[p].leftChild=minTree[0].extrema;
+
+            if(minTree[parents[minTree[0].extrema]-numberOfNodes].rightChild==minTree[0].extrema)
                 minTree[parents[minTree[0].extrema]-numberOfNodes].rightChild=pos;
-            //printf("here\n");
+            else
+                minTree[parents[minTree[0].extrema]-numberOfNodes].leftChild=pos;
             parents[pos]=parents[minTree[0].extrema];
             parents[minTree[0].extrema]=p;
             elements[pos]=newEle;
-            //printf("here\n");
             //balance trees again
+
             balance(minTree[0].extrema,maxTree,parents[minTree[0].extrema],true);
-            balance(pos,minTree,parents[pos]-numberOfNodes,false,true);//all
+            balance(pos,minTree,parents[pos]-numberOfNodes,false);//all
         }
     }
     else{
@@ -258,20 +255,20 @@ void Tree::insert(Vec3b newEle){
                 //old element is in minTree
                 //swap newEle->maxTree.extrema->oldEle
                 int p=parents[pos]-numberOfNodes;
-                bool maxL=!(minTree[p].rightChild==pos);
+                //bool maxL=!(minTree[p].rightChild==pos);
 
-                bool minL=!(maxTree[parents[maxTree[0].extrema]].rightChild==maxTree[0].extrema);
+                //bool minL=!(maxTree[parents[maxTree[0].extrema]].rightChild==maxTree[0].extrema);
 
-                if (maxL)
-                    minTree[p].leftChild=maxTree[0].extrema;
-                else
+                if (minTree[p].rightChild==pos)
                     minTree[p].rightChild=maxTree[0].extrema;
-
-
-                if(minL)
-                    maxTree[parents[maxTree[0].extrema]].leftChild=pos;
                 else
+                    minTree[p].leftChild=maxTree[0].extrema;
+
+
+                if(maxTree[parents[maxTree[0].extrema]].rightChild==maxTree[0].extrema)
                     maxTree[parents[maxTree[0].extrema]].rightChild=pos;
+                else
+                    maxTree[parents[maxTree[0].extrema]].leftChild=pos;
 
                 parents[pos]=parents[maxTree[0].extrema];
                 parents[maxTree[0].extrema]=p+numberOfNodes;
@@ -279,8 +276,7 @@ void Tree::insert(Vec3b newEle){
 
                 //balance trees again
                 balance(maxTree[0].extrema,minTree,parents[maxTree[0].extrema]-numberOfNodes,false);
-                //elements[pos]=newEle;
-                balance(pos,maxTree,parents[pos],true,true);
+                balance(pos,maxTree,parents[pos],true);
 
             }
             else{

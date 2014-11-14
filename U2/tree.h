@@ -31,9 +31,10 @@ public:
 private:
     void insert(Vec3b newEle);
     bool compare(Vec3b a,Vec3b b);
-    void balance(int position,Node* Tree,int node,bool max,bool all=false);
+    void balance(int position, Node* Tree, int node, bool max);
     int width;
     int size;
+    int l,r;
     //actual colors
     Vec3b* elements;
     int* parents;
