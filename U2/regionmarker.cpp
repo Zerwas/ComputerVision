@@ -33,6 +33,7 @@ static void onTrackbar(int, void*)
         //go filter image
         int rightBorder=image.cols-filterSize-1;
         int bottonBorder=image.rows-filterSize-1;
+
         //______________________________________________multiset version naiv________________________________________
 /*
         bool(*compare)(Vec3b,Vec3b)=compL;
@@ -135,6 +136,112 @@ static void onTrackbar(int, void*)
                 }
             }
         }//*/
+
+        //_______________________________borders naiv multiset__________________________________
+
+        bool(*compare)(Vec3b,Vec3b)=compL;
+        multiset<Vec3b,bool(*)(Vec3b,Vec3b)> medianSet (compare);
+        multiset<Vec3b,bool(*)(Vec3b,Vec3b)>::iterator it;
+        for (int y = 0; y < filterSize; ++y) {
+            //_______________top border_________________
+            medianSet.clear();
+            //fill filter
+            for (int x = 0; x <= filterSize; ++x) {
+                for (int y2 = -y; y2 <=filterSize; ++y2) {
+                    medianSet.insert(image.at<Vec3b>(Point(x,y+y2)));
+                }
+            }
+            it=medianSet.begin();
+            advance(it,medianSet.size()/2);
+            median.at<Vec3b>(Point(0,y))=*it;
+            //move right
+            for (int x = 1; x < image.cols; ++x) {
+                for (int y2 = -y; y2 <= filterSize; ++y2) {
+                    if (x>filterSize) {
+                        it=(medianSet.find(image.at<Vec3b>(Point(x-filterSize-1,y+y2))));
+                        medianSet.erase(it);
+                    }
+                    if (x<=rightBorder)
+                        medianSet.insert(image.at<Vec3b>(Point(x+filterSize,y+y2)));
+                }
+                it=medianSet.begin();
+                advance(it,medianSet.size()/2);
+                median.at<Vec3b>(Point(x,y))=*it;
+            }
+            //_____________botton border________________
+            medianSet.clear();
+            //fill filter
+            for (int x = 0; x <= filterSize; ++x) {
+                for (int y2 = -y; y2 <=filterSize; ++y2) {
+                    medianSet.insert(image.at<Vec3b>(Point(x,image.rows-1-y-y2)));
+                }
+            }
+            it=medianSet.begin();
+            advance(it,medianSet.size()/2);
+            median.at<Vec3b>(Point(0,image.rows-1-y))=*it;
+            //move right
+            for (int x = 1; x < image.cols; ++x) {
+                for (int y2 = -y; y2 <= filterSize; ++y2) {
+                    if (x>filterSize) {
+                        it=(medianSet.find(image.at<Vec3b>(Point(x-filterSize-1,image.rows-1-y-y2))));
+                        medianSet.erase(it);
+                    }
+                    if (x<=rightBorder)
+                        medianSet.insert(image.at<Vec3b>(Point(x+filterSize,image.rows-1-y-y2)));
+                }
+                it=medianSet.begin();
+                advance(it,medianSet.size()/2);
+                median.at<Vec3b>(Point(x,image.rows-1-y))=*it;
+            }
+        }
+        for (int x = 0; x < filterSize; ++x) {
+            //_______________left border_________________
+            medianSet.clear();
+            //fill filter
+            for (int y = 0; y <= 2*filterSize; ++y) {
+                for (int x2 = -x; x2 <=filterSize; ++x2) {
+                    medianSet.insert(image.at<Vec3b>(Point(x+x2,y)));
+                }
+            }
+            it=medianSet.begin();
+            advance(it,medianSet.size()/2);
+            median.at<Vec3b>(Point(x,filterSize))=*it;
+            //move right
+            for (int y = filterSize+1; y < bottonBorder; ++y) {
+                for (int x2 = -x; x2 <= filterSize; ++x2) {
+                    it=(medianSet.find(image.at<Vec3b>(Point(x+x2,y-filterSize-1))));
+                    medianSet.erase(it);
+                    medianSet.insert(image.at<Vec3b>(Point(x+x2,y+filterSize)));
+                }
+                it=medianSet.begin();
+                advance(it,medianSet.size()/2);
+                median.at<Vec3b>(Point(x,y))=*it;
+            }
+            //_____________right border________________
+            medianSet.clear();
+            //fill filter
+            for (int y = 0; y <= 2*filterSize; ++y) {
+                for (int x2 = -x; x2 <=filterSize; ++x2) {
+                    medianSet.insert(image.at<Vec3b>(Point(image.cols-1-x-x2,y)));
+                }
+            }
+            it=medianSet.begin();
+            advance(it,medianSet.size()/2);
+            median.at<Vec3b>(Point(image.cols-1-x,filterSize))=*it;
+            //move right
+            for (int y = filterSize+1; y < bottonBorder; ++y) {
+                for (int x2 = -x; x2 <= filterSize; ++x2) {
+                    it=(medianSet.find(image.at<Vec3b>(Point(image.cols-1-x-x2,y-filterSize-1))));
+                    medianSet.erase(it);
+                    medianSet.insert(image.at<Vec3b>(Point(image.cols-1-x-x2,y+filterSize)));
+                }
+                it=medianSet.begin();
+                advance(it,medianSet.size()/2);
+                median.at<Vec3b>(Point(image.cols-1-x,y))=*it;
+            }
+
+        }
+        //*/
         finish=clock();
         printf("%d:%ldms\n",filterSize,(finish-start)*1000/CLOCKS_PER_SEC);
         //save calculated image
@@ -149,12 +256,12 @@ static void help()
 {
     printf("\nThis sample demonstrates Canny edge detection\n"
            "Call:\n"
-           "    /.edge [image_name -- Default is fruits.jpg]\n\n");
+           "    /.edge [image_name -- Default is cat.jpg]\n\n");
 }
 
 const char* keys =
 {
-    "{1| |fruits.jpg|input image name}"
+    "{1| |cat.jpg|input image name}"
 };
 
 int main( int argc, const char** argv )
@@ -172,7 +279,7 @@ int main( int argc, const char** argv )
     //put shot noise on picture
     for (int x = 0; x < image.cols; ++x) {
         for (int y = 0; y < image.rows; ++y) {
-            //if (rand()%100<3) image.at<Vec3b>(Point(x,y))=Vec3b(rand()%255,rand()%255,rand()%255);
+            if (rand()%100<3) image.at<Vec3b>(Point(x,y))=Vec3b(rand()%255,rand()%255,rand()%255);
         }
     }
     //show original of filterwidth = 1
