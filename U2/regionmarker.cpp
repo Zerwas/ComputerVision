@@ -13,14 +13,36 @@ using namespace cv;
 using namespace std;
 
 
-const int trackbarmax=40;
+const int trackbarmax=80;
 int filterSize = 1;
-Mat image,ims;
+Mat image,ims,median;
 //here calculated images get saved so changed the trackbar is smoother
 //from 0 to trackbarmax
 Mat images[trackbarmax+1];
 bool compL(Vec3b a,Vec3b b){
     return a[0]+a[1]+a[2]>b[0]+b[1]+b[2];
+}
+
+void calcMedianInRow(int y){
+    Tree* tree=new Tree(2*filterSize+1);
+    //fill filter
+    for (int x = -filterSize; x <= filterSize; ++x) {
+        for (int y2 = -filterSize; y2 <=filterSize; ++y2) {
+            tree->insertR(image.at<Vec3b>(Point(x<0?rand()%filterSize:x,
+                                                (y-y2)<0?(rand()%(y+filterSize)):
+                                                         (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
+        }
+    }
+    median.at<Vec3b>(Point(0,y))=tree->getMedian();
+    //move right
+    for (int x = 1; x < image.cols; ++x) {
+        for (int y2 = -filterSize; y2 <= filterSize; ++y2) {
+            tree->insertR(image.at<Vec3b>(Point((x+filterSize)>=image.cols?image.cols-1-rand()%(image.cols-1-x+filterSize):x+filterSize,
+                                                (y-y2)<0?(rand()%(y+filterSize)):
+                                                         (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
+        }
+        median.at<Vec3b>(Point(x,y))=tree->getMedian();
+    }
 }
 // define a trackbar callback
 static void onTrackbar(int, void*)
@@ -28,7 +50,7 @@ static void onTrackbar(int, void*)
     if (images[filterSize].empty()){
         clock_t start,finish;
         start=clock();
-        Mat median;
+        //Mat median;
         image.copyTo(median);
         //go filter image
         int rightBorder=image.cols-filterSize-1;
@@ -64,7 +86,7 @@ static void onTrackbar(int, void*)
             imshow("multiset", median);
         }
         //*/
-
+/*
         //_______________________________________slower but working tree version______________________________________
         for (int y = filterSize; y <= bottonBorder; ++y) {
             Tree* tree=new Tree(2*filterSize+1);
@@ -83,10 +105,35 @@ static void onTrackbar(int, void*)
                 median.at<Vec3b>(Point(x,y))=tree->getMedian();
 
             }
-        }
+        }//*/
 
-        //_______________________________________faster tree version (not correct)_____________________________________
+        //_______________________________________________tree with rnd border__________________________________________
+        for (int y = 0; y < image.rows; ++y) {
+            Tree* tree=new Tree(2*filterSize+1);
+            //fill filter
+            for (int x = -filterSize; x <= filterSize; ++x) {
+                for (int y2 = -filterSize; y2 <=filterSize; ++y2) {
+                    tree->insertR(image.at<Vec3b>(Point(x<0?rand()%filterSize:x,
+                                                        (y-y2)<0?(rand()%(y+filterSize)):
+                                                                 (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
+                }
+            }
+            median.at<Vec3b>(Point(0,y))=tree->getMedian();
+            //move right
+            for (int x = 1; x < image.cols; ++x) {
+                for (int y2 = -filterSize; y2 <= filterSize; ++y2) {
+                    tree->insertR(image.at<Vec3b>(Point((x+filterSize)>=image.cols?image.cols-1-rand()%(image.cols-1-x+filterSize):x+filterSize,
+                                                        (y-y2)<0?(rand()%(y+filterSize)):
+                                                                 (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
+                }
+                median.at<Vec3b>(Point(x,y))=tree->getMedian();
+            }
+            delete tree;
+        }
+        //imshow("rnd med", median);
         //*/
+        //_______________________________________faster tree version (not correct)_____________________________________
+
 /*
         //filterWidth is allways odd
         Tree* medianTree=new Tree(2*filterSize+1);
@@ -136,7 +183,7 @@ static void onTrackbar(int, void*)
                 }
             }
         }//*/
-
+/*
         //_______________________________borders naiv multiset__________________________________
 
         bool(*compare)(Vec3b,Vec3b)=compL;
@@ -279,7 +326,7 @@ int main( int argc, const char** argv )
     //put shot noise on picture
     for (int x = 0; x < image.cols; ++x) {
         for (int y = 0; y < image.rows; ++y) {
-            if (rand()%100<3) image.at<Vec3b>(Point(x,y))=Vec3b(rand()%255,rand()%255,rand()%255);
+            if (rand()%100<3) image.at<Vec3b>(Point(x,y))=Vec3b(rand()%256,rand()%256,rand()%256);
         }
     }
     //show original of filterwidth = 1
@@ -293,9 +340,12 @@ int main( int argc, const char** argv )
 
     //initialize
     onTrackbar(0,0);
+    /*for (int var = 0; var < trackbarmax; ++var) {
+        filterSize++;
+        onTrackbar(0,0);
+    }//*/
     //show original
     imshow("Filter",image);
-    //cvtColor(image, image, CV_BGR2GRAY);
     // Wait for a key stroke; the same function arranges events processing
     waitKey(0);
     return 0;

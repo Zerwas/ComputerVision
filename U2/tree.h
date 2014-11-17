@@ -20,6 +20,7 @@ class Tree
 {
 public:
     Tree(int width);
+    ~Tree();
     Vec3b getMedian();
     //left
     Vec3b insertL(Vec3b newEle);

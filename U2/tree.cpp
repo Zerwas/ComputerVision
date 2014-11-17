@@ -10,6 +10,12 @@
 using namespace cv;
 using namespace std;
 
+Tree::~Tree(){
+    delete[] maxTree;
+    delete[] minTree;
+    delete[] parents;
+    delete[] elements;
+}
 
 Tree::Tree(int width):width(width),size(width*width),pos(0)
 {
