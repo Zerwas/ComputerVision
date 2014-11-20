@@ -8,13 +8,14 @@
 #include <tree.h>
 
 #include <set>
+#include <thread>
 
 using namespace cv;
 using namespace std;
 
 
 const int trackbarmax=80;
-int filterSize = 1;
+int filterSize = 80;
 Mat image,ims,median;
 //here calculated images get saved so changed the trackbar is smoother
 //from 0 to trackbarmax
@@ -23,25 +24,27 @@ bool compL(Vec3b a,Vec3b b){
     return a[0]+a[1]+a[2]>b[0]+b[1]+b[2];
 }
 
-void calcMedianInRow(int y){
-    Tree* tree=new Tree(2*filterSize+1);
-    //fill filter
-    for (int x = -filterSize; x <= filterSize; ++x) {
-        for (int y2 = -filterSize; y2 <=filterSize; ++y2) {
-            tree->insertR(image.at<Vec3b>(Point(x<0?rand()%filterSize:x,
-                                                (y-y2)<0?(rand()%(y+filterSize)):
-                                                         (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
+void calcMedianInRow(int lower,int upper){
+    for (int y = lower; y < upper; ++y) {
+        Tree* tree=new Tree(2*filterSize+1);
+        //fill filter
+        for (int x = -filterSize; x <= filterSize; ++x) {
+            for (int y2 = -filterSize; y2 <=filterSize; ++y2) {
+                tree->insertR(image.at<Vec3b>(Point(x<0?rand()%filterSize:x,
+                                                    (y-y2)<0?(rand()%(y+filterSize)):
+                                                             (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
+            }
         }
-    }
-    median.at<Vec3b>(Point(0,y))=tree->getMedian();
-    //move right
-    for (int x = 1; x < image.cols; ++x) {
-        for (int y2 = -filterSize; y2 <= filterSize; ++y2) {
-            tree->insertR(image.at<Vec3b>(Point((x+filterSize)>=image.cols?image.cols-1-rand()%(image.cols-1-x+filterSize):x+filterSize,
-                                                (y-y2)<0?(rand()%(y+filterSize)):
-                                                         (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
+        median.at<Vec3b>(Point(0,y))=tree->getMedian();
+        //move right
+        for (int x = 1; x < image.cols; ++x) {
+            for (int y2 = -filterSize; y2 <= filterSize; ++y2) {
+                tree->insertR(image.at<Vec3b>(Point((x+filterSize)>=image.cols?image.cols-1-rand()%(image.cols-1-x+filterSize):x+filterSize,
+                                                    (y-y2)<0?(rand()%(y+filterSize)):
+                                                             (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
+            }
+            median.at<Vec3b>(Point(x,y))=tree->getMedian();
         }
-        median.at<Vec3b>(Point(x,y))=tree->getMedian();
     }
 }
 // define a trackbar callback
@@ -106,7 +109,7 @@ static void onTrackbar(int, void*)
 
             }
         }//*/
-
+/*
         //_______________________________________________tree with rnd border__________________________________________
         for (int y = 0; y < image.rows; ++y) {
             Tree* tree=new Tree(2*filterSize+1);
@@ -132,9 +135,27 @@ static void onTrackbar(int, void*)
         }
         //imshow("rnd med", median);
         //*/
+        //_____________________________________________tread tree with rnd border______________________________________
+        thread t1(calcMedianInRow,0,image.rows/8);
+        thread t2(calcMedianInRow,image.rows/8,(image.rows/8)*2);
+        thread t3(calcMedianInRow,(image.rows/8)*2,(image.rows/8)*3);
+        thread t4(calcMedianInRow,(image.rows/8)*3,(image.rows/8)*4);
+        thread t5(calcMedianInRow,(image.rows/8)*4,(image.rows/8)*5);
+        thread t6(calcMedianInRow,(image.rows/8)*5,(image.rows/8)*6);
+        thread t7(calcMedianInRow,(image.rows/8)*6,(image.rows/8)*7);
+        thread t8(calcMedianInRow,(image.rows/8)*7,image.rows);
+        t1.join();
+        t2.join();
+        t3.join();
+        t4.join();
+        t5.join();
+        t6.join();
+        t7.join();
+        t8.join();
+        //*/
         //_______________________________________faster tree version (not correct)_____________________________________
-
 /*
+
         //filterWidth is allways odd
         Tree* medianTree=new Tree(2*filterSize+1);
         //fill filter
@@ -290,7 +311,7 @@ static void onTrackbar(int, void*)
         }
         //*/
         finish=clock();
-        printf("%d:%ldms\n",filterSize,(finish-start)*1000/CLOCKS_PER_SEC);
+        printf("%d:%ldms\n",filterSize,(finish-start)*1000/CLOCKS_PER_SEC/8);
         //save calculated image
         median.copyTo(images[filterSize]);
     }
@@ -326,7 +347,7 @@ int main( int argc, const char** argv )
     //put shot noise on picture
     for (int x = 0; x < image.cols; ++x) {
         for (int y = 0; y < image.rows; ++y) {
-            if (rand()%100<3) image.at<Vec3b>(Point(x,y))=Vec3b(rand()%256,rand()%256,rand()%256);
+           // if (rand()%100<3) image.at<Vec3b>(Point(x,y))=Vec3b(rand()%256,rand()%256,rand()%256);
         }
     }
     //show original of filterwidth = 1
@@ -340,7 +361,7 @@ int main( int argc, const char** argv )
 
     //initialize
     onTrackbar(0,0);
-    /*for (int var = 0; var < trackbarmax; ++var) {
+    /*for (int var = 0; filterSize < 15; ++var) {
         filterSize++;
         onTrackbar(0,0);
     }//*/

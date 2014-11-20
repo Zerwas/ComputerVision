@@ -11,6 +11,7 @@ QT       -= gui
 TARGET = hh_2014
 CONFIG   += console
 CONFIG   -= app_bundle
+CONFIG   +=c++11
 TEMPLATE = app
 
 
