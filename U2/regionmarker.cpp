@@ -15,7 +15,7 @@ using namespace std;
 
 
 const int trackbarmax=80;
-int filterSize = 80;
+int filterSize = 20;
 Mat image,ims,median;
 //here calculated images get saved so changed the trackbar is smoother
 //from 0 to trackbarmax
@@ -45,6 +45,7 @@ void calcMedianInRow(int lower,int upper){
             }
             median.at<Vec3b>(Point(x,y))=tree->getMedian();
         }
+        delete tree;
     }
 }
 // define a trackbar callback
@@ -113,28 +114,34 @@ static void onTrackbar(int, void*)
         //_______________________________________________tree with rnd border__________________________________________
         for (int y = 0; y < image.rows; ++y) {
             Tree* tree=new Tree(2*filterSize+1);
-            //fill filter
+            //fill filter at letmost point in row
             for (int x = -filterSize; x <= filterSize; ++x) {
                 for (int y2 = -filterSize; y2 <=filterSize; ++y2) {
+                    //if reqested pixel is outside of the image add another random pixel that is inside the filter and the picture
                     tree->insertR(image.at<Vec3b>(Point(x<0?rand()%filterSize:x,
                                                         (y-y2)<0?(rand()%(y+filterSize)):
                                                                  (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
                 }
             }
+            //set lefttmost pixel in row
             median.at<Vec3b>(Point(0,y))=tree->getMedian();
-            //move right
+            //move filter right
             for (int x = 1; x < image.cols; ++x) {
                 for (int y2 = -filterSize; y2 <= filterSize; ++y2) {
+                    //same here if pixel not in picture take a random one
                     tree->insertR(image.at<Vec3b>(Point((x+filterSize)>=image.cols?image.cols-1-rand()%(image.cols-1-x+filterSize):x+filterSize,
                                                         (y-y2)<0?(rand()%(y+filterSize)):
                                                                  (y-y2)>=image.rows?image.rows-1-rand()%(image.rows-1-y+filterSize):(y-y2))));
                 }
+                //set pixel
                 median.at<Vec3b>(Point(x,y))=tree->getMedian();
             }
+            //free space
             delete tree;
         }
         //imshow("rnd med", median);
         //*/
+
         //_____________________________________________tread tree with rnd border______________________________________
         thread t1(calcMedianInRow,0,image.rows/8);
         thread t2(calcMedianInRow,image.rows/8,(image.rows/8)*2);

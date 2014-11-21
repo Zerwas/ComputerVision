@@ -100,9 +100,8 @@ Tree::Tree(int width):width(width),size(width*width),pos(0)
 
 Vec3b Tree::getMedian(){
     //first element is root
+    //minTree has one element more then maxTree so minTree minimum is Median
     return elements[minTree[0].extrema];
-    //return Vec3b(255,255,255);
-    //return Vec3b(255-elements[minTree[0].extrema][0],255-elements[minTree[0].extrema][1],255-elements[minTree[0].extrema][2]);
 }
 
 /**
@@ -112,57 +111,51 @@ Vec3b Tree::getMedian(){
  * @return true if a>b
  */
 bool Tree::compare(Vec3b a,Vec3b b){
-    //return (a[0]-b[0])*(a[0]-b[0])*(a[0]-b[0])+(a[1]-b[1])*(a[1]-b[1])*(a[1]-b[1])+(a[2]-b[2])*(a[2]-b[2])*(a[2]-b[2])>0;
     return a[0]+a[1]+a[2]>b[0]+b[1]+b[2];
 }
 
+/**
+ * @brief Tree::balance
+ * @param position of element being balanced
+ * @param Tree in which the element is
+ * @param node parent node of the element
+ * @param max true if maxTree false if minTree
+ */
 void Tree::balance(int position, Node *Tree, int node, bool max){
    // printf("balance:%d,(%d,%d:%d)\n",position,Tree[node].leftChild,Tree[node].rightChild,Tree[node].parent);
-    /*if (!all&&position!=Tree[0].extrema){//tree.extrema?
-        while(node!=-1)
-        {
-            if(max^compare(elements[Tree[node].extrema],elements[position])){
-                //change minimum in node
-                Tree[node].extrema=position;
-            }
-            else{
-                //no change so tree is balanced
-                break;
-            }
-            node=Tree[node].parent;
-        }
+    r=Tree[node].rightChild;
+    if(!max&&node==numberOfFullNodes){
+        //former minimum is at node with 1 leaf
+        l=Tree[Tree[node].leftChild].extrema;
     }
-    else{//*/
-        //whole Tree has to be updated because extrema changed
-        r=Tree[node].rightChild;
+    else{
+        l=Tree[node].leftChild;
+    }
+    //update parent extrema
+    Tree[node].extrema=((max^compare(elements[r],elements[l])))?l:r;
+    node=Tree[node].parent;
+    while(node!=-1)
+    {
+        //if(Tree[node].extrema==position)
+        h=Tree[node].extrema;
+        l=Tree[Tree[node].leftChild].extrema;
         if(!max&&node==numberOfFullNodes){
-            //former minimum is at node with 1 leaf
-            l=Tree[Tree[node].leftChild].extrema;
+            //check for node with 1 leaf
+            r=Tree[node].rightChild;
         }
         else{
-            l=Tree[node].leftChild;
+            r=Tree[Tree[node].rightChild].extrema;
         }
+        //update extrema
         Tree[node].extrema=((max^compare(elements[r],elements[l])))?l:r;
+        //if extrema did not change stop
+        if (Tree[node].extrema==h&&Tree[node].extrema!=position)
+            break;
+        //move up in tree
         node=Tree[node].parent;
-        while(node!=-1)
-        {
-            //if(Tree[node].extrema==position)
-            h=Tree[node].extrema;
-            l=Tree[Tree[node].leftChild].extrema;
-            if(!max&&node==numberOfFullNodes){
-                //check for node with 1 leaf
-                r=Tree[node].rightChild;
-            }
-            else{
-                r=Tree[Tree[node].rightChild].extrema;
-            }
-            Tree[node].extrema=((max^compare(elements[r],elements[l])))?l:r;
-            //if extrema did not change stop
-            if (Tree[node].extrema==h&&Tree[node].extrema!=position)
-                break;
-            node=Tree[node].parent;
     }
 }
+
 
 void Tree::printFilter(){
     Vec3b a=getMedian();
