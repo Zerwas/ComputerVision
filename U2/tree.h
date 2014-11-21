@@ -22,15 +22,10 @@ public:
     Tree(int width);
     ~Tree();
     Vec3b getMedian();
-    //left
-    Vec3b insertL(Vec3b newEle);
     //right
-    Vec3b insertR(Vec3b newEle);
-    //botton
-    Vec3b insertB(Vec3b newEle);
+    void insert(Vec3b newEle);
     void printFilter();
 private:
-    void insert(Vec3b newEle);
     bool compare(Vec3b a,Vec3b b);
     void balance(int position,Node* Tree, int node, bool max);
     int width;
