@@ -10,7 +10,7 @@ using namespace cv;
 using namespace std;
 
 
-const int dMax=200,coeffMax=30,numberOfPoints=1024;
+const int dMax=200,coeffMax=200,numberOfPoints=1024;
 int d = dMax/2,maxd,tresh,coeff=1;
 Vec3b wantedColor;
 Mat image;
@@ -73,53 +73,52 @@ static void fourierTransform(int,void*){
         }
         //s_i is now between index-th and index+1-th point (may be equal to index-th point but not index+1)
         //save x value insead of s_i?
-        fContour.push_back(pair<double, double> (s_i,contour[index].y+(contour[index-1].y-contour[index].y)*(s-s_i)/(s-s_prev)));
+        fContour.push_back(pair<double, double> (contour[index].x+(contour[index-1].x-contour[index].x)*(s-s_i)/(s-s_prev),contour[index].y+(contour[index-1].y-contour[index].y)*(s-s_i)/(s-s_prev)));
         //if (i<100||i>300) fContour[i]=Point(s_i,0);
         //else fContour[i]=Point(s_i,200);
         target.at<Vec3b>(Point((int)(contour[index].x+(contour[index-1].x-contour[index].x)*(s-s_i)/(s-s_prev)),(int)fContour[i].second))={255,255,0};
     }
     imshow("Points",target);
     //image.copyTo(target);
-    //calculate fourier coefficients
-    vector < pair<double, double> > fCoefficients;
+    //__________________________________________calculate fourier coefficients______________________________________________
+    vector < pair<double, double> > xCoefficients,yCoefficients;
     double a,b;
     for (int n = 0; n <= coeff; ++n) {
+        //calculate x coefficients
         a=0;b=0;
         //approximate integral
         for (int x = 0; x < numberOfPoints; ++x) {
-            a+=fContour[x].second*cos((n*M_PI*fContour[x].first*2.)/perimeter);
-            b+=fContour[x].second*sin((n*M_PI*fContour[x].first*2.)/perimeter);
+            s_i=x*perimeter/numberOfPoints;
+            a+=fContour[x].second*cos((n*M_PI*s_i*2.)/perimeter);
+            b+=fContour[x].second*sin((n*M_PI*s_i*2.)/perimeter);
         }
         a=(a*2)/numberOfPoints;
         b=(b*2)/numberOfPoints;
-        //if (n>30&&abs(a)>0.5) a=0;
-        //if (n>30&&abs(b)>0.5) b=0;
-        fCoefficients.push_back(pair<double, double> (a,b));
-//        fCoefficients.insert(fCoefficients.end(),Point(a*2,b*1));
+        xCoefficients.push_back(pair<double, double> (a,b));
 
-        //std::cout << fCoefficients[n] << std::endl;
-//        printf("%d:%d,%d=\n",n,(int)fCoefficients[n].x,(int)fCoefficients[n].y);
+        //calculate y coefficients
+        a=0;b=0;
+        //approximate integral
+        for (int x = 0; x < numberOfPoints; ++x) {
+            s_i=x*perimeter/numberOfPoints;
+            a+=fContour[x].first*cos((n*M_PI*s_i*2.)/perimeter);
+            b+=fContour[x].first*sin((n*M_PI*s_i*2.)/perimeter);
+        }
+        a=(a*2)/numberOfPoints;
+        b=(b*2)/numberOfPoints;
+        yCoefficients.push_back(pair<double, double> (a,b));
     }
 
-    for (int i = 0; i < fCoefficients.size(); ++i) {
-        cout << fCoefficients[i].first << "," << fCoefficients[i].second << "\n";
-    }
-    //draw function
+    /*for (int i = 0; i < xCoefficients.size(); ++i) {
+        cout << xCoefficients[i].first << "," << xCoefficients[i].second << "\n";
+    }*/
+    //__________________________________________________draw function_____________________________________________
     target=Mat::zeros(1040,(int)1000,DataType<uchar>::type);
     vector<Point> points;
-    for (int i = 0; i < numberOfPoints; ++i) {
-         //printf("%d\n",(int)fContour[i].y);
-        if ((int)fContour[i].first<target.cols)
-            points.push_back(Point((int)fContour[i].first,(int)fContour[i].second+300));
-            //target.at<uchar>(Point((int)fContour[i].x,(int)fContour[i].y+300))=128;
-    }
-    drawLines(target,points,128);
+    //draw fourier shape
     points.clear();
-    //draw fourier function
-    for (int x = 0; x < target.cols; ++x) {
-        //printf("%d\n",(int)fourierFunction(x,fCoefficients,perimeter)+300);
-        points.push_back(Point(x,(int)fourierFunction(x,fCoefficients,perimeter)+300));
-        //target.at<uchar>(Point(x,(int)fourierFunction(x,fCoefficients,perimeter)+300))=255;
+    for (int x = 0; x < perimeter; ++x) {
+        points.push_back(Point((int)fourierFunction(x,yCoefficients,perimeter),(int)fourierFunction(x,xCoefficients,perimeter)));
     }
     drawLines(target,points,255);
     imshow("fourier function",target);
