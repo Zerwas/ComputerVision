@@ -3,13 +3,14 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <iomanip>
 #include <math.h>
 
 using namespace cv;
 using namespace std;
 
 
-const int dMax=200,coeffMax=300,numberOfPoints=1024;
+const int dMax=200,coeffMax=30,numberOfPoints=1024;
 int d = dMax/2,maxd,tresh,coeff=1;
 Vec3b wantedColor;
 Mat image;
@@ -28,14 +29,20 @@ static double dst(Point a, Point b){
     return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y));
 }
 
-static double fourierFunction(double x,vector<Point> coefficients,double perimeter){
-    double result=coefficients[0].x/2;
+static double fourierFunction(double x,vector< pair<double, double> > coefficients,double perimeter){
+    double result=coefficients[0].first/2;
     for (int n = 1; n <= coeff; ++n) {
-        result+=coefficients[n].x*cos((n*M_PI*x*2)/perimeter)+coefficients[n].y*sin((n*M_PI*x*2)/perimeter);
+        result+=coefficients[n].first*cos((n*M_PI*x*2)/perimeter)+coefficients[n].second*sin((n*M_PI*x*2)/perimeter);
     }
     return result;
 }
 
+/**
+ * @brief drawLines draws lines between points given in vector
+ * @param img
+ * @param points
+ * @param color
+ */
 static void drawLines(Mat img,vector<Point> points,uchar color){
     vector<Point>::iterator it;
     for (it=points.begin(); it<points.end()-1; it++) {
@@ -44,6 +51,7 @@ static void drawLines(Mat img,vector<Point> points,uchar color){
 }
 
 static void fourierTransform(int,void*){
+    cout <<"____________________________\n";
     Mat target;
     image.copyTo(target);
     double perimeter=0;
@@ -52,7 +60,7 @@ static void fourierTransform(int,void*){
         perimeter+=dst(contour[i],contour[i+1]);
     }
     printf("%f,%d\n",perimeter,contour.size());
-    Point *fContour=new Point[numberOfPoints];
+    vector < pair<double, double> > fContour;
     //calculate points (s,y(s))
     double s=0,s_prev,index=0,s_i;
     for (int i = 0; i < numberOfPoints; ++i) {
@@ -65,49 +73,49 @@ static void fourierTransform(int,void*){
         }
         //s_i is now between index-th and index+1-th point (may be equal to index-th point but not index+1)
         //save x value insead of s_i?
-        fContour[i]=Point(s_i,contour[index].y+(contour[index-1].y-contour[index].y)*(s-s_i)/(s-s_prev));
+        fContour.push_back(pair<double, double> (s_i,contour[index].y+(contour[index-1].y-contour[index].y)*(s-s_i)/(s-s_prev)));
         //if (i<100||i>300) fContour[i]=Point(s_i,0);
         //else fContour[i]=Point(s_i,200);
-        target.at<Vec3b>(Point((int)(contour[index].x+(contour[index-1].x-contour[index].x)*(s-s_i)/(s-s_prev)),(int)fContour[i].y))={255,255,0};
+        target.at<Vec3b>(Point((int)(contour[index].x+(contour[index-1].x-contour[index].x)*(s-s_i)/(s-s_prev)),(int)fContour[i].second))={255,255,0};
     }
     imshow("Points",target);
     //image.copyTo(target);
     //calculate fourier coefficients
-    vector<Point> fCoefficients;
+    vector < pair<double, double> > fCoefficients;
     double a,b;
     for (int n = 0; n <= coeff; ++n) {
         a=0;b=0;
         //approximate integral
         for (int x = 0; x < numberOfPoints; ++x) {
-            a+=fContour[x].y*cos((n*M_PI*fContour[x].x*2)/perimeter);
-            b+=fContour[x].y*sin((n*M_PI*fContour[x].x*2)/perimeter);
+            a+=fContour[x].second*cos((n*M_PI*fContour[x].first*2.)/perimeter);
+            b+=fContour[x].second*sin((n*M_PI*fContour[x].first*2.)/perimeter);
         }
         a=(a*2)/numberOfPoints;
         b=(b*2)/numberOfPoints;
         //if (n>30&&abs(a)>0.5) a=0;
         //if (n>30&&abs(b)>0.5) b=0;
-        fCoefficients.push_back(Point(a,b));
+        fCoefficients.push_back(pair<double, double> (a,b));
 //        fCoefficients.insert(fCoefficients.end(),Point(a*2,b*1));
 
         //std::cout << fCoefficients[n] << std::endl;
 //        printf("%d:%d,%d=\n",n,(int)fCoefficients[n].x,(int)fCoefficients[n].y);
     }
-    vector<Point>::iterator it;
-    for (it=fCoefficients.begin(); it<fCoefficients.end(); it++) {
 
-        std::cout << (*it).x*100000 << "," << (*it).y*100000 << "\n";
+    for (int i = 0; i < fCoefficients.size(); ++i) {
+        cout << fCoefficients[i].first << "," << fCoefficients[i].second << "\n";
     }
     //draw function
     target=Mat::zeros(1040,(int)1000,DataType<uchar>::type);
     vector<Point> points;
     for (int i = 0; i < numberOfPoints; ++i) {
          //printf("%d\n",(int)fContour[i].y);
-        if ((int)fContour[i].x<target.cols)
-            points.push_back(Point((int)fContour[i].x,(int)fContour[i].y+300));
+        if ((int)fContour[i].first<target.cols)
+            points.push_back(Point((int)fContour[i].first,(int)fContour[i].second+300));
             //target.at<uchar>(Point((int)fContour[i].x,(int)fContour[i].y+300))=128;
     }
     drawLines(target,points,128);
     points.clear();
+    //draw fourier function
     for (int x = 0; x < target.cols; ++x) {
         //printf("%d\n",(int)fourierFunction(x,fCoefficients,perimeter)+300);
         points.push_back(Point(x,(int)fourierFunction(x,fCoefficients,perimeter)+300));
@@ -115,7 +123,6 @@ static void fourierTransform(int,void*){
     }
     drawLines(target,points,255);
     imshow("fourier function",target);
-    delete fContour;
 }
 
 // define a trackbar callback
