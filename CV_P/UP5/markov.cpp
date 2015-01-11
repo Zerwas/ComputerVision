@@ -8,35 +8,24 @@ using namespace cv;
 using namespace std;
 
 const int sizeMax=15,treshMax=100,medianMax=15,maxDisp=15;
-Mat imageL,imageR,graph;
+Mat imageL,imageR,graph,solution,solved;
 Mat diffs[sizeMax+1],targets[sizeMax+1];
 int size=1,tresh=70,median=3;
 vector<Point> leafs;
 
-static double diff(Mat img1,Mat img2,int x,int y,int x2,int y2){
-    double result=0;
-    for (int y3 = -size; y3 <= size; ++y3) {
-        for (int x3 = -size; x3 <= size; ++x3) {
-            result+=abs(img1.at<uchar>(y+y3,x+x3)-img2.at<uchar>(y2+y3,x2+x3));
-        }
-    }
-    result/=(2*size+1)*(2*size+1);
-    return result;
-}
-
 static bool isLeaf(int x,int y){
     uchar nodeValue=graph.at<uchar>(y,x);
     //check whether all children are solved
-    if ((nodeValue>>3&1)&&graph.at<uchar>(y-1,x)>0){
+    if ((nodeValue>>3&1)&&(!solved.at<bool>(y-1,x))){
         return false;
     }
-    if ((nodeValue>>2&1)&&graph.at<uchar>(y,x-1)>0){
+    if ((nodeValue>>2&1)&&(!solved.at<bool>(y,x-1))){
         return false;
     }
-    if ((nodeValue>>1&1)&&graph.at<uchar>(y+1,x)>0){
+    if ((nodeValue>>1&1)&&(!solved.at<bool>(y+1,x))){
         return false;
     }
-    if ((nodeValue&1)&&graph.at<uchar>(y,x+1)>0){
+    if ((nodeValue&1)&&(!solved.at<bool>(y,x+1))){
         return false;
     }
     return true;
@@ -45,10 +34,48 @@ static bool isLeaf(int x,int y){
 static void solveNode(int x,int y){
     uchar nodeValue=graph.at<uchar>(y,x);
     //set node to solved
-    graph.at<uchar>(y,x)=0;
-    //____________________magic happens here____________________________
-
-    //__________________________________________________________________
+    solved.at<bool>(y,x)=true;
+    //________________precalc vector of children________________________
+    vector<Point> children;
+    if (nodeValue>>3&1){
+        children.push_back(Point(x,y-1));
+    }
+    if (nodeValue>>2&1){
+        children.push_back(Point(x-1,y));
+    }
+    if (nodeValue>>1&1){
+        children.push_back(Point(x,y+1));
+    }
+    if (nodeValue&1){
+        children.push_back(Point(x+1,y));
+    }
+    //number of possible configurations for children
+    int total=1;
+    for (int i = 0; i < children.size(); ++i) {
+        total*=16;
+    }
+    //___________________the magic happens here__________________________
+    double best,h;
+    int kPrime;
+    short kI,i;
+    for (short k = 0; k < 16; ++k) {
+        best=INFINITY;
+        for (kPrime = 0; kPrime < total; ++kPrime) {
+            h=0;
+            for (i = 0; i < children.size(); ++i) {
+                //g(k,k'_i)+solution(k'_i);
+                kI=(kPrime>>4*i)&15;
+                h+=((kI==k)?0:1)+diffs[kI].at<double>(children[i]);
+            }
+            if (h<best){
+                best=h;
+                solution.at<int>(y,x)=kPrime;
+            }
+        }
+        //(+=) add g(k)
+        diffs[k].at<double>(y,x)+=best;
+    }
+    //___________________add new leafs to queue_________________________
     //find parents that become new leafs and put them in queue
     if ((nodeValue>>7&1)&&isLeaf(x,y-1)){
         leafs.push_back(Point(x,y-1));
@@ -68,9 +95,16 @@ static void solveNode(int x,int y){
  * @brief solveGraph find global optimum for Graph and display resulting depth picture
  */
 static void solveGraph(int, void*){
-    cout << ((66>>2&1))<<"\n";
     Mat target=Mat::zeros(imageL.rows,imageL.cols,DataType<uchar>::type);
-    //calc global optimum
+    solution=Mat::zeros(imageL.rows,imageL.cols,DataType<int>::type);
+    solved=Mat::zeros(graph.rows,graph.cols,DataType<bool>::type);
+    for (int x = 0; x < graph.cols; ++x) {
+        for (int y = 0; y < graph.rows; ++y) {
+            if (graph.at<uchar>(y,x)==0)
+                solved.at<bool>(y,x)=true;
+        }
+    }
+    //_________________________________calc global optimum__________________________
     int n=0;
     while(!leafs.empty()){
         //cout << leafs[0]<<"\n";
@@ -80,7 +114,8 @@ static void solveGraph(int, void*){
         target.at<uchar>(leafs[0])=(n++)*255/(imageL.rows*imageL.cols);
         leafs.erase(leafs.begin());
     }
-    //read off solution
+    //_________________________________read off solution____________________________
+
     imshow("Depth",target);
 }
 
@@ -97,7 +132,7 @@ static void createGraph(int, void*){
      *----------
      */
     //TODO start from 0?,save root?
-    /*graph.at<uchar>(size,graph.cols/2)=4+2+1;
+    graph.at<uchar>(size,graph.cols/2)=4+2+1;
     for (int y = size+1; y < imageL.rows-size; ++y) {
         //spine
         graph.at<uchar>(y,graph.cols/2)=128+4+2+1;
@@ -131,7 +166,7 @@ static void createGraph(int, void*){
      *----------
      */
     //root
-    graph.at<uchar>(size,graph.cols/2)=4+2+1;
+    /*graph.at<uchar>(size,graph.cols/2)=4+2+1;
     //left top
     graph.at<uchar>(size,size)=16+2;
     //right top
@@ -176,6 +211,17 @@ static void createGraph(int, void*){
     //*/
     imshow("Graph",graph);
     solveGraph(0,0);
+}
+
+static double diff(Mat img1,Mat img2,int x,int y,int x2,int y2){
+    double result=0;
+    for (int y3 = -size; y3 <= size; ++y3) {
+        for (int x3 = -size; x3 <= size; ++x3) {
+            result+=abs(img1.at<uchar>(y+y3,x+x3)-img2.at<uchar>(y2+y3,x2+x3));
+        }
+    }
+    result/=(2*size+1)*(2*size+1);
+    return result;
 }
 
 /**
