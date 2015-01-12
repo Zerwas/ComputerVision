@@ -7,13 +7,14 @@
 using namespace cv;
 using namespace std;
 
-const int sizeMax=15,treshMax=100,medianMax=15,maxDisp=15;
-Mat imageL,imageR,graph,solution,solved;
+const int sizeMax=15,treshMax=100,medianMax=15,maxDisp=15,alphaMax=20,funcTypeMax=5;
+Mat imageL,imageR,graph,solution,solved,target;
 Mat diffs[sizeMax+1],targets[sizeMax+1];
-int size=1,tresh=70,median=3;
+int size=1,tresh=70,median=3,spinePos,alpha=7,funcType=0;
 vector<Point> leafs;
+vector<pair<Point,int> > roots;
 
-static bool isLeaf(int x,int y){
+inline bool isLeaf(int x,int y){
     uchar nodeValue=graph.at<uchar>(y,x);
     //check whether all children are solved
     if ((nodeValue>>3&1)&&(!solved.at<bool>(y-1,x))){
@@ -30,12 +31,7 @@ static bool isLeaf(int x,int y){
     }
     return true;
 }
-
-static void solveNode(int x,int y){
-    uchar nodeValue=graph.at<uchar>(y,x);
-    //set node to solved
-    solved.at<bool>(y,x)=true;
-    //________________precalc vector of children________________________
+inline vector<Point> getChildren(uchar nodeValue,int x,int y){
     vector<Point> children;
     if (nodeValue>>3&1){
         children.push_back(Point(x,y-1));
@@ -49,6 +45,30 @@ static void solveNode(int x,int y){
     if (nodeValue&1){
         children.push_back(Point(x+1,y));
     }
+    return children;
+}
+inline double g(int k,int kPrime){
+    switch (funcType) {
+    case 0:
+        return ((kPrime==k)?0:1);
+    case 1:
+        return abs(k-kPrime)/15.;
+    case 2:
+        return abs(k-kPrime)>6?1:abs(k-kPrime)/6.;
+    case 3:
+        return (k-kPrime)*(k-kPrime)/225.;
+    default:
+        return abs(k-kPrime)>6?1:(k-kPrime)*(k-kPrime)/36.;
+    }
+
+}
+
+inline void solveNode(int x,int y){
+    uchar nodeValue=graph.at<uchar>(y,x);
+    //set node to solved
+    solved.at<bool>(y,x)=true;
+    //________________precalc vector of children________________________
+    vector<Point> children=getChildren(nodeValue,x,y);
     //number of possible configurations for children
     int total=1;
     for (int i = 0; i < children.size(); ++i) {
@@ -64,8 +84,8 @@ static void solveNode(int x,int y){
             h=0;
             for (i = 0; i < children.size(); ++i) {
                 //g(k,k'_i)+solution(k'_i);
-                kI=(kPrime>>4*i)&15;
-                h+=((kI==k)?0:1)+diffs[kI].at<double>(children[i]);
+                kI=(kPrime>>(4*i))&15;
+                h+=(alpha*10./alphaMax)*g(k,kI)+diffs[kI].at<double>(children[i]);
             }
             if (h<best){
                 best=h;
@@ -91,11 +111,22 @@ static void solveNode(int x,int y){
     }
 }
 
+inline void readOff(int x,int y,int k){
+    //draw solution
+    target.at<uchar>(y,x)=k*254/maxDisp+1;
+    uchar nodeValue=graph.at<uchar>(y,x);
+    vector<Point> children=getChildren(nodeValue,x,y);
+    for (int i = 0; i < children.size(); ++i) {
+        if (target.at<uchar>(children[i])==0)
+            roots.push_back(pair<Point,int>(children[i],(solution.at<int>(y,x)>>(4*i))&15));
+    }
+}
+
 /**
  * @brief solveGraph find global optimum for Graph and display resulting depth picture
  */
 static void solveGraph(int, void*){
-    Mat target=Mat::zeros(imageL.rows,imageL.cols,DataType<uchar>::type);
+    Mat graphView=Mat::zeros(imageL.rows,imageL.cols,DataType<uchar>::type);
     solution=Mat::zeros(imageL.rows,imageL.cols,DataType<int>::type);
     solved=Mat::zeros(graph.rows,graph.cols,DataType<bool>::type);
     for (int x = 0; x < graph.cols; ++x) {
@@ -111,11 +142,27 @@ static void solveGraph(int, void*){
         //calc solution for first leaf
         //TODO only returns parents that actually are new leafs
         solveNode(leafs[0].x,leafs[0].y);
-        target.at<uchar>(leafs[0])=(n++)*255/(imageL.rows*imageL.cols);
+        graphView.at<uchar>(leafs[0])=(n++)*255/(imageL.rows*imageL.cols);
         leafs.erase(leafs.begin());
     }
     //_________________________________read off solution____________________________
-
+    target=Mat::zeros(imageL.rows,imageL.cols,DataType<uchar>::type);
+    //calc best solution for each root
+    for (int i = 0; i < roots.size(); ++i) {
+        int best=INFINITY;
+        for (int k = 0; k < 16; ++k) {
+            if (diffs[k].at<double>(roots[i].first)<best){
+                best=diffs[k].at<double>(roots[i].first);
+                roots[i].second=k;
+            }
+        }
+    }
+    //save solution in target
+    while (!roots.empty()) {
+        readOff(roots[0].first.x,roots[0].first.y,roots[0].second);
+        roots.erase(roots.begin());
+    }
+    imshow("graph",graphView);
     imshow("Depth",target);
 }
 
@@ -131,11 +178,12 @@ static void createGraph(int, void*){
      *    |
      *----------
      */
-    //TODO start from 0?,save root?
-    graph.at<uchar>(size,graph.cols/2)=4+2+1;
+    //TODO start from 0?
+    roots.push_back(pair<Point,int>(Point(spinePos,size),0));
+    graph.at<uchar>(size,spinePos)=4+2+1;
     for (int y = size+1; y < imageL.rows-size; ++y) {
         //spine
-        graph.at<uchar>(y,graph.cols/2)=128+4+2+1;
+        graph.at<uchar>(y,spinePos)=128+4+2+1;
         //left leafs
         leafs.push_back(Point(size,y));
         graph.at<uchar>(y,size)=16;
@@ -144,71 +192,17 @@ static void createGraph(int, void*){
         graph.at<uchar>(y,graph.cols-size-1)=64;
     }
     //left arms
-    for (int x = graph.cols/2-1; x >size; --x) {
+    for (int x = spinePos-1; x >size; --x) {
         for (int y = size; y < imageL.rows-size; ++y) {
             graph.at<uchar>(y,x)=16+4;
         }
     }
     //right arms
-    for (int x = graph.cols/2+1; x < graph.cols-size; ++x) {
+    for (int x = spinePos+1; x < graph.cols-size; ++x) {
         for (int y = size; y < imageL.rows-size; ++y) {
             graph.at<uchar>(y,x)=64+1;
         }
-    }//*/
-    //just a test
-    //graph.at<uchar>(graph.rows/2,graph.cols/3)+=2;
-    //graph.at<uchar>(graph.rows/2+1,graph.cols/3)+=128;
-
-    //___________________________mygraph fully connected but acyclic__________________________________
-    /*||||||||||
-     *----------
-     *||||||||||
-     *----------
-     */
-    //root
-    /*graph.at<uchar>(size,graph.cols/2)=4+2+1;
-    //left top
-    graph.at<uchar>(size,size)=16+2;
-    //right top
-    graph.at<uchar>(size,graph.cols-size-1)=64+2;
-    //left right borders
-    for (int y = size+1; y < graph.rows-size-1; ++y) {
-        //spine
-        graph.at<uchar>(y,graph.cols/2)=128+4+2+1;
-        //left
-        graph.at<uchar>(y,size)=128+16+2;
-        //right
-        graph.at<uchar>(y,graph.cols-size-1)=128+64+2;
     }
-    //left side
-    for (int x = size+1; x < graph.cols/2; ++x) {
-        //top
-        graph.at<uchar>(size,x)=16+4+2;
-        //body
-        for (int y = size+1; y < graph.rows-size-1; ++y) {
-            graph.at<uchar>(y,x)=128+16+4+2;
-        }
-        //bottom
-        graph.at<uchar>(graph.rows-size-1,x)=128+16+4;
-    }
-    //right side
-    for (int x = graph.cols/2+1; x < graph.cols-size-1; ++x) {
-        //top
-        graph.at<uchar>(size,x)=64+2+1;
-        //body
-        for (int y = size+1; y < graph.rows-size-1; ++y) {
-            graph.at<uchar>(y,x)=128+64+2+1;
-        }
-        //bottom
-        graph.at<uchar>(graph.rows-size-1,x)=128+64+1;
-    }
-    //leaf leafs
-    leafs.push_back(Point(size,graph.rows-size-1));
-    graph.at<uchar>(graph.rows-size-1,size)=128+16;
-    //right leafs
-    leafs.push_back(Point(graph.cols-size-1,graph.rows-size-1));
-    graph.at<uchar>(graph.rows-size-1,graph.cols-size-1)=128+64;
-    //*/
     imshow("Graph",graph);
     solveGraph(0,0);
 }
@@ -252,8 +246,12 @@ int main()
     cvtColor(imageL, imageL, CV_RGB2GRAY);
     cvtColor(imageR, imageR, CV_RGB2GRAY);
     namedWindow("Depth",1);
-    createTrackbar("diff", "Depth", &size, sizeMax, preCalc);
+    createTrackbar("Boxsize", "Depth", &size, sizeMax, preCalc);
     createTrackbar("Median", "Depth", &median, medianMax, solveGraph);
+    spinePos=imageL.cols/2;
+    createTrackbar("Spine Pos", "Depth", &spinePos, imageL.cols-1, preCalc);
+    createTrackbar("alpha", "Depth", &alpha, alphaMax, preCalc);
+    createTrackbar("weigthfunctionType", "Depth", &funcType, funcTypeMax, preCalc);
     preCalc(0,0);
     waitKey(0);
     return 0;

@@ -7,7 +7,7 @@
 QT       += core
 
 QT       -= gui
-#QMAKE_CXXFLAGS += -O3
+QMAKE_CXXFLAGS += -O3
 TARGET = hh_2014
 CONFIG   += console
 CONFIG   -= app_bundle
