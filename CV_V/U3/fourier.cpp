@@ -11,7 +11,7 @@ using namespace std;
 
 
 const int dMax=200,coeffMax=200,numberOfPoints=1024;
-int d = dMax/2,maxd,tresh,coeff=1;
+int d = 94,maxd,tresh,coeff=5;
 Vec3b wantedColor;
 Mat image;
 vector<Point> contour;
@@ -113,8 +113,7 @@ static void fourierTransform(int,void*){
         cout << xCoefficients[i].first << "," << xCoefficients[i].second << "\n";
     }*/
     //__________________________________________________draw function_____________________________________________
-    target=Mat::zeros(image.rows,image.cols,DataType<uchar>::type);
-    //image.copyTo(target);
+    image.copyTo(target);
     vector<Point> points;
     //draw fourier shape
     points.clear();
@@ -122,7 +121,7 @@ static void fourierTransform(int,void*){
         points.push_back(Point((int)fourierFunction(x,yCoefficients,perimeter),(int)fourierFunction(x,xCoefficients,perimeter)));
     }
     drawLines(target,points,255);
-    imshow("fourier function",target);
+    imshow("Fourier",target);
 }
 
 /**
@@ -193,12 +192,14 @@ static void onTrackbar(int, void*)
     //fill largest white region
     if (maxIndex>=0)
         drawContours(marked,contours,maxIndex, color,
-                 CV_FILLED, 8, hierarchy, 1);
-    yCoefficients.clear();
+                 CV_FILLED, 8);
+
     //set contour
     contour=contours[maxIndex];
     contour.insert(contour.end(),contour[0]);
+    //clear fourier function
     xCoefficients.clear();
+    yCoefficients.clear();
     //save calculated image
     //call fT
     fourierTransform(0,0);
@@ -228,46 +229,26 @@ static void setWantedColor(int event, int x, int y, int , void* ){
 
 }
 
-static void help()
-{
-    printf("\nThis sample demonstrates Canny edge detection\n"
-           "Call:\n"
-           "    /.edge [image_name -- Default is fruits.jpg]\n\n");
-}
 
-const char* keys =
-{
-    "{1| |fruits.jpg|input image name}"
-};
-
-int main( int argc, const char** argv )
+int main()
 {
 
-    CommandLineParser parser(argc, argv, keys);
-    string filename = parser.get<string>("1");
-
-    image = imread(filename, 1);
-    if(image.empty())
-    {
-        printf("Cannot read image file: %s\n", filename.c_str());
-        help();
-        return -1;
-    }
+    image = imread("Wirbel.png", 1);
 
     // Create a window
-    namedWindow("Marker", 1);
+    namedWindow("Fourier", 1);
 
     // create a toolbar
-    createTrackbar("Distance", "Marker", &d, dMax, onTrackbar);
-    createTrackbar("Coefficients", "Marker", &coeff, coeffMax, fourierTransform);
+    createTrackbar("Distance", "Fourier", &d, dMax, onTrackbar);
+    createTrackbar("Coefficients", "Fourier", &coeff, coeffMax, fourierTransform);
     //mouse click event
-     setMouseCallback("Marker", setWantedColor, NULL);
+    setMouseCallback("Fourier", setWantedColor, NULL);
 
     //show original
-    imshow("Marker",image);
+    imshow("Fourier",image);
 
     //initialise
-    setWantedColor(EVENT_LBUTTONDOWN,0,0,0,NULL);
+    setWantedColor(EVENT_LBUTTONDOWN,195,311,0,NULL);
     // Wait for a key stroke; the same function arranges events processing
     waitKey(0);
 
