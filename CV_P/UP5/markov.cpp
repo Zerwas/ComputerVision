@@ -8,11 +8,12 @@ using namespace cv;
 using namespace std;
 
 const int sizeMax=15,treshMax=100,medianMax=15,maxDisp=15,alphaMax=40,funcTypeMax=5;
-Mat imageL,imageR,graph,solution,solved,target;
-Mat diffs[sizeMax+1],targets[sizeMax+1];
+Mat imageL,imageR,graph,solved,target;
+Mat diffs[sizeMax+1],targets[sizeMax+1],solution[sizeMax+1];
 int size=2,tresh=70,median=0,spinePos,alpha=7,funcType=0;
 vector<Point> leafs;
 vector<pair<Point,int> > roots;
+double facktor;
 
 inline bool isLeaf(int x,int y){
     uchar nodeValue=graph.at<uchar>(y,x);
@@ -54,11 +55,11 @@ inline double g(int k,int kPrime){
     case 1:
         return abs(k-kPrime)/15.;
     case 2:
-        return abs(k-kPrime)>3?1:abs(k-kPrime)/4.;
+        return abs(k-kPrime)>5?1:abs(k-kPrime)/6.;
     case 3:
         return (k-kPrime)*(k-kPrime)/225.;
     case 4:
-        return abs(k-kPrime)>3?1:(k-kPrime)*(k-kPrime)/16.;
+        return abs(k-kPrime)>5?1:(k-kPrime)*(k-kPrime)/36.;
     default:
         return abs(k-kPrime)>0?(abs(k-kPrime)<7?1:0.5):0;
     }
@@ -87,11 +88,11 @@ inline void solveNode(int x,int y){
             for (i = 0; i < children.size(); ++i) {
                 //g(k,k'_i)+solution(k'_i);
                 kI=(kPrime>>(4*i))&15;
-                h+=(alpha*0.01)*g(k,kI)+diffs[kI].at<double>(children[i]);
+                h+=facktor*g(k,kI)+diffs[kI].at<double>(children[i]);
             }
             if (h<best){
                 best=h;
-                solution.at<int>(y,x)=kPrime;
+                solution[k].at<int>(y,x)=kPrime;
             }
         }
         //(+=) add g(k)
@@ -120,7 +121,7 @@ inline void readOff(int x,int y,int k){
     vector<Point> children=getChildren(nodeValue,x,y);
     for (int i = 0; i < children.size(); ++i) {
         if (target.at<uchar>(children[i])==0)
-            roots.push_back(pair<Point,int>(children[i],(solution.at<int>(y,x)>>(4*i))&15));
+            roots.push_back(pair<Point,int>(children[i],(solution[k].at<int>(y,x)>>(4*i))&15));
     }
 }
 
@@ -135,7 +136,10 @@ static void afterEffects(int, void*){
  */
 static void solveGraph(int, void*){
     Mat graphView=Mat::zeros(imageL.rows,imageL.cols,DataType<uchar>::type);
-    solution=Mat::zeros(imageL.rows,imageL.cols,DataType<int>::type);
+    for (int i = 0; i <= maxDisp; ++i) {
+        Mat solImg=Mat::zeros(imageL.rows,imageL.cols,DataType<double>::type);
+        solImg.copyTo(solution[i]);
+    }
     solved=Mat::zeros(graph.rows,graph.cols,DataType<bool>::type);
     for (int x = 0; x < graph.cols; ++x) {
         for (int y = 0; y < graph.rows; ++y) {
@@ -143,6 +147,8 @@ static void solveGraph(int, void*){
                 solved.at<bool>(y,x)=true;
         }
     }
+    //weight of binary costs
+    facktor=0.01*pow(1.2,alpha);
     //_________________________________calc global optimum__________________________
     int n=0;
     while(!leafs.empty()){
