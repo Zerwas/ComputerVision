@@ -7,10 +7,10 @@
 using namespace cv;
 using namespace std;
 
-const int sizeMax=15,treshMax=100,medianMax=15,maxDisp=15,alphaMax=20,funcTypeMax=5;
+const int sizeMax=15,treshMax=100,medianMax=15,maxDisp=15,alphaMax=40,funcTypeMax=5;
 Mat imageL,imageR,graph,solution,solved,target;
 Mat diffs[sizeMax+1],targets[sizeMax+1];
-int size=1,tresh=70,median=3,spinePos,alpha=7,funcType=0;
+int size=2,tresh=70,median=0,spinePos,alpha=7,funcType=0;
 vector<Point> leafs;
 vector<pair<Point,int> > roots;
 
@@ -54,11 +54,13 @@ inline double g(int k,int kPrime){
     case 1:
         return abs(k-kPrime)/15.;
     case 2:
-        return abs(k-kPrime)>6?1:abs(k-kPrime)/6.;
+        return abs(k-kPrime)>3?1:abs(k-kPrime)/4.;
     case 3:
         return (k-kPrime)*(k-kPrime)/225.;
+    case 4:
+        return abs(k-kPrime)>3?1:(k-kPrime)*(k-kPrime)/16.;
     default:
-        return abs(k-kPrime)>6?1:(k-kPrime)*(k-kPrime)/36.;
+        return abs(k-kPrime)>0?(abs(k-kPrime)<7?1:0.5):0;
     }
 
 }
@@ -85,7 +87,7 @@ inline void solveNode(int x,int y){
             for (i = 0; i < children.size(); ++i) {
                 //g(k,k'_i)+solution(k'_i);
                 kI=(kPrime>>(4*i))&15;
-                h+=(alpha*10./alphaMax)*g(k,kI)+diffs[kI].at<double>(children[i]);
+                h+=(alpha*0.01)*g(k,kI)+diffs[kI].at<double>(children[i]);
             }
             if (h<best){
                 best=h;
@@ -122,6 +124,12 @@ inline void readOff(int x,int y,int k){
     }
 }
 
+static void afterEffects(int, void*){
+    Mat h;
+    medianBlur(target,h,median*2+1);
+    imshow("Depth",h);
+}
+
 /**
  * @brief solveGraph find global optimum for Graph and display resulting depth picture
  */
@@ -138,9 +146,7 @@ static void solveGraph(int, void*){
     //_________________________________calc global optimum__________________________
     int n=0;
     while(!leafs.empty()){
-        //cout << leafs[0]<<"\n";
         //calc solution for first leaf
-        //TODO only returns parents that actually are new leafs
         solveNode(leafs[0].x,leafs[0].y);
         graphView.at<uchar>(leafs[0])=(n++)*255/(imageL.rows*imageL.cols);
         leafs.erase(leafs.begin());
@@ -163,7 +169,7 @@ static void solveGraph(int, void*){
         roots.erase(roots.begin());
     }
     imshow("graph",graphView);
-    imshow("Depth",target);
+    afterEffects(0,0);
 }
 
 /**
@@ -178,7 +184,6 @@ static void createGraph(int, void*){
      *    |
      *----------
      */
-    //TODO start from 0?
     roots.push_back(pair<Point,int>(Point(spinePos,size),0));
     graph.at<uchar>(size,spinePos)=4+2+1;
     for (int y = size+1; y < imageL.rows-size; ++y) {
@@ -222,6 +227,7 @@ static double diff(Mat img1,Mat img2,int x,int y,int x2,int y2){
  * @brief preCalc calculate disparities and differenses for all box sizes
  */
 static void preCalc(int, void*){
+    double diffMin = INFINITY,diffMax=-INFINITY,h;
     //calculate differences for each disparity
     for (int i = 0; i <= maxDisp; ++i) {
         Mat diffImg=Mat::zeros(imageL.rows,imageL.cols,DataType<double>::type);
@@ -231,7 +237,19 @@ static void preCalc(int, void*){
         for (int x = size; x < imageL.cols-size; ++x) {
             for (int x2 = 0; x2 >= -maxDisp; --x2) {
                 //save difference
-                diffs[-x2].at<double>(y,x)=diff(imageL,imageR,x,y,x+x2,y);
+                h=diff(imageL,imageR,x,y,x+x2,y);
+                diffMin=min(diffMin,h);
+                diffMax=max(diffMax,h);
+                diffs[-x2].at<double>(y,x)=h;
+            }
+        }
+    }
+
+    //normalize differences
+    for (int y = size; y < imageL.rows-size; ++y) {
+        for (int x = size; x < imageL.cols-size; ++x) {
+            for (int x2 = 0; x2 >= -maxDisp; --x2) {
+                diffs[-x2].at<double>(y,x)=(diffs[-x2].at<double>(y,x)-diffMin)/diffMax;
             }
         }
     }
@@ -247,7 +265,7 @@ int main()
     cvtColor(imageR, imageR, CV_RGB2GRAY);
     namedWindow("Depth",1);
     createTrackbar("Boxsize", "Depth", &size, sizeMax, preCalc);
-    createTrackbar("Median", "Depth", &median, medianMax, solveGraph);
+    createTrackbar("Median", "Depth", &median, medianMax, afterEffects);
     spinePos=imageL.cols/2;
     createTrackbar("Spine Pos", "Depth", &spinePos, imageL.cols-1, preCalc);
     createTrackbar("alpha", "Depth", &alpha, alphaMax, preCalc);
